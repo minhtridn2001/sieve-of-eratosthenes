@@ -1,0 +1,152 @@
+.data	
+			#Data Segment
+isprime:
+	.space  4004			#Array size 100*sizeof(int)
+nl:
+	.asciiz " " 		#Space
+welcome:
+	.asciiz "The prime numbers from 0 to 1000 are:\n"
+
+countMessage:
+	.asciiz "\nNumber of prime is: "	
+
+	.text				#Text Segment
+	.globl main
+main:
+	la $a0,welcome		#call welcome function
+	li$v0,4
+	syscall	
+	
+	subu $sp, $sp, 32	#Stack frame is 32 bytes long   
+	sw $ra, 20($sp) 	#Save return address to the stack
+	sw $fp, 16($sp) 	#Save the old frame pointer to the stack 
+	addiu $fp, $sp, 28 	#Set up frame pointer
+	la $a0, isprime 	#Load pointer to isprime and prepare argument of initialize function 
+	sw $a0, 12($sp) 	#Save pointer to isprime to the stack
+		
+	jal initialize		#Call initialize function 
+	lw $a0, 12($sp)		#Prepare argument of find_primes function 
+	jal find_primes		#Call find_primes function
+	
+	lw $a0, 12($sp)		#Prepare argument of print function
+	jal print			#Call print function
+	
+				
+	la $a0,countMessage	#print number of prime
+	li $v0,4
+	syscall
+	move $a0,$t6
+	li $v0,1
+	syscall
+
+	#Return code
+	lw $ra, 20($sp)		#Restore return address		
+	lw $fp, 16($sp)		#Restore old frame pointer 
+	addiu $sp, $sp, 32	#Pop stack
+	jr $ra				#Return to caller
+initialize:				#Function initialize 
+	subu $sp, $sp, 32	#Stack frame is 32 bytes long
+	sw $ra, 20($sp)		#Save return address
+	sw $fp, 16($sp)		#Save old frame pointer
+	addiu $fp, $sp, 28	#Set up new frame pointer
+	
+	li $t6,0		# save couter in $t6 =0
+	li $t0, 2			#Initialize i=2
+	li $t1, 1000			#Initialize N
+	li $s1, 1			#Store value 1 to a register 
+	sw $zero, 0($a0)	#isprime[0] = 0
+	addi $a0, 4			
+	sw $zero, 0($a0)	#isprime[1] = 0
+	addi $a0, 4
+	
+init_loop:				#loop for(i=2; i<=N; i++)
+	sw $s1, 0($a0)		#isprime[i] = 1
+	addi $a0, 4
+	addi $t0, 1
+	bne $t0, $t1, init_loop 
+	
+	#Return code
+	lw $ra, 20($sp)		#Restore return address	
+	lw $fp, 16($sp)		#Restore old frame pointer 
+	addiu $sp, $sp, 32	#Pop stack
+	jr $ra				#Return to caller
+	la $a0, nl
+	li $v0, 4			#Prepare for system call print_string
+	la $a0, nl
+	syscall
+	
+find_primes:			#Function find_primes 
+	subu $sp, $sp, 32	#Stack frame is 32 bytes long
+	sw $ra, 20($sp)		#Save return address
+	sw $fp, 16($sp)		#Save old frame pointer
+	addiu $fp, $fp, 28	#Set up new frame pointer
+	
+	la $a1, isprime 	#Save pointer to isprime to a register other than $a0
+	
+	li $t0, 2			#Initialize i=2 
+	li $s1, 1			#Store value 1 to a register 
+	li $t1, 1000			#Initialize N
+	
+	addi $a1, 8			#Start from isprime[2]
+	
+outer_loop:				#loop for(i=2; i<N; i++) 
+	lw  $t5, 0($a1)
+	bne $t5, $s1, cont	#if(isprime[i])
+	add $t2, $t0, $t0	#Initialize j
+	
+inner_loop:				#loop for(j=i+i; j<=N; j+=i)
+	mul $t3, $t0, 4		#align address of the next element of isprime
+	add $a1, $a1, $t3
+	sw $zero, 0($a1)	#isprime[j] = 0
+	add $t2, $t2 ,$t0
+	ble	$t2, $t1, inner_loop
+	
+cont:
+	addi $t0, 1
+	mul $t4, $t0, 4
+	add $a1, $a0, $t4
+	bne $t0, $t1, outer_loop
+	
+	#Return code
+	lw $ra, 20($sp)		#Restore return address	
+	lw $fp, 16($sp)		#Restore old frame pointer 
+	addiu $sp, $sp, 32	#Pop stack
+	jr $ra				#Return to caller
+	
+print:					#Function print
+	subu $sp, $sp, 32	#Stack frame is 32 bytes long
+	sw $ra, 20($sp)		#Save return address
+	sw $fp, 16($sp)		#Save old frame pointer
+	addiu $fp, $fp, 28	#Set up new frame pointer	
+	la $a1, isprime		#Save pointer to isprime to a register other than $a0
+	li $t0, 0			#Initialize i=0	
+	li $t1, 1000			#Initialize N
+	li $s1, 1			#Store value 1 to a register
+	
+print_primes_loop:		#loop  for(i=0; i<=N; i++)
+	lw  $t5, 0($a1)	
+	bne $t5, $s1, cont_print	#if(isprime[i])
+
+	# inc Counter
+	move $t7,$t6
+	add $t6,$t7,1	#count = count+1
+
+	move $a0, $t0
+	li $v0, 1			#Prepare for system call print_int 
+	syscall
+	
+	li $v0, 4			#Prepare for system call print_string
+	la $a0, nl
+	syscall
+	
+cont_print:
+	addi $a1, 4
+	addi $t0, 1
+	ble	$t0, $t1, print_primes_loop
+ 
+	
+	#Return code
+	lw $ra, 20($sp)		#Restore return address	
+	lw $fp, 16($sp)		#Restore old frame pointer 
+	addiu $sp, $sp, 32	#Pop stack
+	jr $ra				#Return to caller
